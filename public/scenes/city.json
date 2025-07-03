@@ -1,0 +1,28 @@
+{
+  "worldObjects": [
+    {
+      "url": "obj/building_1",
+      "transform": {
+        "translation": [-2, 0, -5],
+        "rotation": [0, 0, 0],
+        "scale": [1, 1, 1]
+      }
+    },
+    {
+      "url": "obj/building_2",
+      "transform": {
+        "translation": [2, 0, -5],
+        "rotation": [0, 0, 0],
+        "scale": [1, 1, 1]
+      }
+    },
+    {
+      "url": "obj/road",
+      "transform": {
+        "translation": [0, -1, -5],
+        "rotation": [0, 0, 0],
+        "scale": [1, 0.01, 1]
+      }
+    }
+  ]
+}
