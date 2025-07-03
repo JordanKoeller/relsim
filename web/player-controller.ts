@@ -1,5 +1,5 @@
 
-import { vec3, vec4, Vec3, Vec4, Mat4, mat4, quat, Quat} from 'ts-gl-matrix';
+import { Vec2, vec2, vec3, vec4, Vec3, Vec4, Mat4, mat4, quat, Quat} from 'ts-gl-matrix';
 
 export interface Camera {
   // camera Attributes
@@ -26,7 +26,7 @@ export function NewCamera(position: Vec3, yaw: number, pitch: number): Camera {
     Right: vec3.fromValues(1, 0, 0),
     WorldUp: vec3.fromValues(0, 1, 0),
     Yaw: yaw,
-    pitch: pitch,
+    Pitch: pitch,
     Zoom: 45,
 
     ViewMatrix(): Mat4 {
@@ -54,6 +54,7 @@ export function NewCamera(position: Vec3, yaw: number, pitch: number): Camera {
       const x = Math.cos(ToRadians(t.Yaw)) * Math.cos(ToRadians(t.Pitch));
       const y = Math.sin(ToRadians(t.Pitch));
       const z = Math.sin(ToRadians(t.Yaw)) * Math.cos(ToRadians(t.Pitch));
+      t.Front = vec3.fromValues(x, y, z);
       vec3.normalize(t.Front, t.Front);
       vec3.cross(t.Right, t.Front, t.WorldUp);
       vec3.cross(t.Up, t.Right, t.Front);
@@ -65,41 +66,112 @@ export function NewCamera(position: Vec3, yaw: number, pitch: number): Camera {
 
 
 export interface PlayerController {
-  GetTransform(): Mat4,
+  Update(dt: number), // Update the player by `dt` time elapsed.
+  ViewMatrix(): Mat4, // Get the current ViewMatrix.
 };
 
 export function NewPlayerController(
     element: HTMLElement, camera: Camera): PlayerController {
   const sensitivity = 0.1;
+  const movementVelocity = 0.01; // m/s
   const t = {
-    Camera: camera
+    // Current state of the Player.
+    Camera: camera,
+    velocity: vec3.fromValues(0, 0, 0),
+
+    // Control variables below
+    wPressed: false,
+    aPressed: false,
+    sPressed: false,
+    dPressed: false,
+    Update(dt: number): void {
+      vec3.zero(t.velocity);
+      if (t.wPressed) {
+        vec3.add(t.velocity, t.velocity, t.Camera.Front);
+      }
+      if (t.sPressed) {
+        vec3.sub(t.velocity, t.velocity, t.Camera.Front);
+      }
+      if (t.dPressed) {
+        vec3.add(t.velocity, t.velocity, t.Camera.Right);
+      }
+      if (t.aPressed) {
+        vec3.sub(t.velocity, t.velocity, t.Camera.Right);
+      }
+      vec3.scale(t.velocity, t.velocity, movementVelocity * dt / 1000);
+      t.Camera.Translate(t.velocity);
+    },
+    ViewMatrix(): Mat4 {
+      return camera.ViewMatrix();
+    },
+
   };
   element.addEventListener(
     "keydown",
     (event) => {
       switch (event.key) {
         case "w": {
-          t.Camera.Translate(vec3.fromValues(0, 0, -sensitivity));
+          t.wPressed = true;
           break;
         }
         case "a": {
-          t.Camera.Translate(vec3.fromValues(-sensitivity, 0, 0));
+          t.aPressed = true;
           break;
         }
         case "s": {
-          t.Camera.Translate(vec3.fromValues(0, 0, sensitivity));
+          t.sPressed = true;
           break;
         }
         case "d": {
-          t.Camera.Translate(vec3.fromValues(sensitivity, 0, 0));
+      t.dPressed = true;
           break;
         }
       }
+    }
+  );
+  element.addEventListener(
+    "keyup",
+    (event) => {
+      switch (event.key) {
+        case "w": {
+          t.wPressed = false;
+          break;
+        }
+        case "a": {
+          t.aPressed = false;
+          break;
+        }
+        case "s": {
+          t.sPressed = false;
+          break;
+        }
+        case "d": {
+          t.dPressed = false;
+          break;
+        }
+      }
+    }
+  );
+  let mousePos: Vec2 | undefined = undefined;
+  element.requestPointerLock();
+  element.addEventListener(
+    "mousemove",
+    (event) => {
+      if (mousePos === undefined) {
+        mousePos = vec2.fromValues(event.movementX, event.movementY);
+      }
+      const delta = vec2.fromValues(event.movementX, event.movementY);
+      vec2.sub(delta, delta, mousePos);
+      // Flip delta since default camera is inverted.
+      delta.y = -delta.y;
+      t.Camera.Rotate(delta.x, delta.y);
+      mousePos = vec2.fromValues(event.x, event.y);
     }
   );
   return t;
 };
 
 function ToRadians(degrees: number): number {
-  return degrees * Math.PI / 180
+  const ret = degrees * Math.PI / 180;
+  return ret;
 }
