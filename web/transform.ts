@@ -19,10 +19,10 @@ export function NewTransform(
     {translation, rotation, scale}:
     {translation?: Vec3, rotation?: Quat, scale?: Vec3}
 ): Transform {
-  const t = {};
+  const t: Partial<Transform> = {};
   if (translation) {
     t.translation = translation;
-  } else (
+  } else {
   t.translation = vec3.fromValues(0, 0, 0);
   }
   if (rotation) {
