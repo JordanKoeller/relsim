@@ -81,7 +81,7 @@ async function main() {
 
   const camera = NewCamera(vec3.create(), -90, 0);
 
-  const controller = NewPlayerController(document, camera);
+  const controller = NewPlayerController(document.body, camera);
 
   let start = undefined;
 

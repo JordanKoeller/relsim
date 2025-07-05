@@ -104,11 +104,9 @@ export function NewPlayerController(
     ViewMatrix(): Mat4 {
       return camera.ViewMatrix();
     },
-
   };
-  element.addEventListener(
-    "keydown",
-    (event) => {
+  const handlers = {
+    keydown(event: Event): void {
       switch (event.key) {
         case "w": {
           t.wPressed = true;
@@ -127,11 +125,8 @@ export function NewPlayerController(
           break;
         }
       }
-    }
-  );
-  element.addEventListener(
-    "keyup",
-    (event) => {
+    },
+    keyup(event: Event): void {
       switch (event.key) {
         case "w": {
           t.wPressed = false;
@@ -150,22 +145,36 @@ export function NewPlayerController(
           break;
         }
       }
-    }
-  );
-  let mousePos: Vec2 | undefined = undefined;
-  element.requestPointerLock();
-  element.addEventListener(
-    "mousemove",
-    (event) => {
-      if (mousePos === undefined) {
-        mousePos = vec2.fromValues(event.movementX, event.movementY);
-      }
-      const delta = vec2.fromValues(event.movementX, event.movementY);
-      vec2.sub(delta, delta, mousePos);
+    },
+    mousemove(event: Event): void {
+      const delta = vec2.fromValues(event.movementX * 0.2, event.movementY * 0.2);
       // Flip delta since default camera is inverted.
       delta.y = -delta.y;
       t.Camera.Rotate(delta.x, delta.y);
-      mousePos = vec2.fromValues(event.x, event.y);
+    }
+  };
+  element.addEventListener(
+    "click",
+    async (event) => {
+      if (!document.pointerLockElement) {
+        await element.requestPointerLock();
+      }
+    },
+  );
+  document.addEventListener(
+    "pointerlockchange",
+    (event) => {
+      if (document.pointerLockElement) {
+        // Locking 
+        element.addEventListener("mousemove", handlers.mousemove);
+        element.addEventListener("keydown", handlers.keydown);
+        element.addEventListener("keyup", handlers.keyup);
+      } else {
+        // Unlocking
+        element.removeEventListener("mousemove", handlers.mousemove);
+        element.removeEventListener("keydown", handlers.keydown);
+        element.removeEventListener("keyup", handlers.keyup);
+      }
     }
   );
   return t;
