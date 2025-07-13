@@ -15,7 +15,7 @@ import {
   DrawPrefab,
 } from './renderer.ts';
 import {
-  LoadScene, BindScene
+  LoadScene, BindScene, LoadCityGrid,
 } from "./scene.ts";
 import {
   Camera, NewCamera, PlayerController, NewPlayerController
@@ -55,6 +55,49 @@ void main() {
 }
 `;
 
+const SKYBOX_VERTEX_SHADER = `#version 300 es
+precision mediump float;
+
+in vec3 aPos;
+
+out vec3 uvw;
+
+uniform mat4 uProjectionMatrix;
+uniform mat4 uViewMatrix;
+
+void main()
+{
+    uvw = vec3(aPos.x, -aPos.y, aPos.z);
+    mat4 myView = uViewMatrix;
+    myView[0].w = 0.0;
+    myView[1].w = 0.0;
+    myView[2].w = 0.0;
+    myView[3] = vec4(0.0, 0.0, 0.0, 0.0);
+    vec4 pos = uProjectionMatrix * myView * vec4(aPos, 1.0);
+    gl_Position = pos.xyww;
+}
+`
+const SKYBOX_FRAGMENT_SHADER = `#version 300 es
+precision mediump float;
+
+in vec3 uvw;
+
+out vec4 FragColor;
+
+uniform samplerCube uCubemap;
+uniform float uGamma;
+
+
+vec3 gamma_correct(vec3 rgb) {
+    return pow(rgb, vec3(1.0/uGamma));
+}
+
+void main()
+{
+  FragColor = vec4(gamma_correct(texture(uCubemap, uvw).xyz), 1.0);
+}
+`
+
 
 
 async function main() {
@@ -73,13 +116,40 @@ async function main() {
     return;
   }
 
-  const scene = await LoadScene(glContext, shaderProgram, "scenes/city.json");
+  const skyboxProgram = CreateShaderProgram(glContext.gl, {
+    vertexShader: SKYBOX_VERTEX_SHADER,
+    fragmentShader: SKYBOX_FRAGMENT_SHADER,
+  });
+  if (!skyboxProgram) {
+    ShowError("Failed to create SkyboxProgram");
+    return;
+  }
+
+  // const scene = await LoadScene(glContext, shaderProgram, "scenes/city.json");
+  //
+  /*
+  0000000
+  0000000
+  00X0X00
+  0000000
+  00X0X00
+  0000000
+  0000000
+   */
+  const scene = await LoadCityGrid(glContext, shaderProgram, [7, 7], [
+    [2, 2],
+    [4, 2],
+    [2, 4],
+    [4, 4],
+  ]);
   if (!scene) {
     ShowError("Failed to load scene");
     return;
   }
 
-  const camera = NewCamera(vec3.create(), -90, 0);
+  const skybox = await LoadPrefab(glContext.gl, skyboxProgram, "/obj/skybox");
+
+  const camera = NewCamera(vec3.fromValues(30, -1, 6), 90, 0);
 
   const controller = NewPlayerController(document.body, camera);
 
@@ -89,7 +159,8 @@ async function main() {
     if (start === undefined) {
       start = timestamp;
     }
-    const elapsed = timestamp - start; // In ms
+    const elapsed = (timestamp - start) / 1000;
+    start = timestamp;
 
     // Set up uniforms
     const fieldOfView = (45 * Math.PI) / 180; // in radians
@@ -103,6 +174,14 @@ async function main() {
     mat4.perspective(projectionMatrix, fieldOfView, aspect, zNear, zFar);
     controller.Update(elapsed);
 
+    const velocityBox = document.getElementById("velocity");
+    velocityBox.innerText = `${controller.Beta()}`;
+
+    const positionBox = document.getElementById("position");
+    positionBox.innerText = `${controller.Camera.Position}`;
+
+    const rotation = document.getElementById("rotation");
+    rotation.innerText = `${controller.Camera.Yaw}`;
 
     ClearCanvas(glContext);
     shaderProgram.use();
@@ -126,14 +205,33 @@ async function main() {
     );
     BindScene(glContext, shaderProgram, scene);
 
+
+    // Draw the skybox.
+    skyboxProgram.use();
+    BindUniform(
+      glContext,
+      skyboxProgram,
+      {
+        label: "uProjectionMatrix",
+        value: projectionMatrix,
+        typeHint: UNIFORM_TYPES.MAT4,
+      }
+    );
+    BindUniform(
+      glContext,
+      skyboxProgram,
+      {
+        label: "uViewMatrix",
+        value: controller.ViewMatrix(),
+        typeHint: UNIFORM_TYPES.MAT4,
+      }
+    );
+    DrawPrefab(glContext, skybox);
+
     requestAnimationFrame(render);
   };
   requestAnimationFrame(render);
-  // await render(0);
-  
-
-
-
 }
+
 
 window.addEventListener('load', main);

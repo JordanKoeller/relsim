@@ -27,7 +27,7 @@
       }
 
       /** CSS to make a nice little error box output for debugging (nice if you can't use devtools, e.g. mobile)  */
-      #error-box {
+      .debug {
         color: #fd8080;
         font-weight: 500;
         font-size: 18pt;
@@ -53,8 +53,14 @@
       Doing a little error output in the HTML is nice when testing on mobile,
        where you don't have access to console.log.
     -->
-    <div id="error-box">
+    <div class="debug" id="error-box">
       <span class="error-box-title">Error messages, if any, go in here.</span>
+    </div>
+    <div class="debug" id="position">
+    </div>
+    <div class="debug" id="velocity">
+    </div>
+    <div class="debug" id="rotation">
     </div>
   </body>
 </html>

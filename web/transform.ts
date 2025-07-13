@@ -19,38 +19,23 @@ export function NewTransform(
     {translation, rotation, scale}:
     {translation?: Vec3, rotation?: Quat, scale?: Vec3}
 ): Transform {
-  const t = {};
-  if (translation) {
-    t.translation = translation;
-  } else (
-  t.translation = vec3.fromValues(0, 0, 0);
-  }
-  if (rotation) {
-    t.rotation = rotation;
-  } else {
-    t.rotation = quat.create();
-  }
-  if (scale) {
-    t.scale = scale;
-  } else {
-    t.scale = vec3.fromValues(1,1,1);
-  }
-
-  t.Add = (other: Transform) => Transform {
-    return other;
-  }
-  t.Scale(other: number) => Transform {
-    return t;
-  }
-  t.Matrix = () => Mat4 {
-    const matrix = mat4.create();
-    mat4.scale(matrix, matrix, t.scale);
-    mat4.rotate(matrix, matrix, t.rotation);
-    mat4.translate(matrix, matrix, t.translation);
-    return matrix;
-  }
-
+  const t = {
+    translation: translation ? translation : vec3.create(),
+    rotation: rotation ? rotation : quat.create(),
+    scale: scale ? scale : vec3.create(),
+    Add(other: Transform): Transform {
+      return other;
+    },
+    Scale(factor: number): Transform {
+      return t;
+    },
+    Matrix(): Mat4 {
+      const matrix = mat4.create();
+      mat4.scale(matrix, matrix, t.scale);
+      mat4.rotate(matrix, matrix, t.rotation);
+      mat4.translate(matrix, matrix, t.translation);
+      return matrix;
+    },
+  };
   return t;
-
-  
 }

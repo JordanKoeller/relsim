@@ -330,6 +330,7 @@ export interface Texture {
 //   A texture object representing the image loaded to the GPU.
 export function CreateTexture(gl: GL, image: Image): Texture {
   const texture = gl.createTexture();
+  gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   gl.bindTexture(gl.TEXTURE_2D, texture);
   gl.texImage2D(
       gl.TEXTURE_2D,
@@ -358,6 +359,36 @@ export function CreateTexture(gl: GL, image: Image): Texture {
   return {texture, id: image.src};
 }
 
+// Sends a cubemap to the GPU. Returns the created texture id.
+// Args:
+//   @gl:    WebGL handle
+//   @faces: A unique Image object for each face of the cube.
+export function CreateCubemap(gl: GL, faces: {front: Image, back: Image, top: Image, bottom: Image, left: Image, right: Image}): Texture {
+  const texture = gl.createTexture();
+  gl.bindTexture(gl.TEXTURE_CUBE_MAP, texture);
+  const targetsMap = [
+   [gl.TEXTURE_CUBE_MAP_POSITIVE_X, faces.right],
+   [gl.TEXTURE_CUBE_MAP_NEGATIVE_X, faces.left],
+   [gl.TEXTURE_CUBE_MAP_POSITIVE_Y, faces.bottom],
+   [gl.TEXTURE_CUBE_MAP_NEGATIVE_Y, faces.top],
+   [gl.TEXTURE_CUBE_MAP_POSITIVE_Z, faces.front],
+   [gl.TEXTURE_CUBE_MAP_NEGATIVE_Z, faces.back],
+  ];
+  targetsMap.forEach(([target, image]) => {
+    gl.texImage2D(
+        target,
+        0,
+        gl.RGBA,
+        gl.RGBA,
+        gl.UNSIGNED_BYTE,
+        image,
+    );
+  });
+  gl.generateMipmap(gl.TEXTURE_CUBE_MAP);
+  gl.texParameteri(gl.TEXTURE_CUBE_MAP, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_LINEAR);
+  return {texture, id: `cubemap-${faces.front.src}`};
+}
+
 // Loads an image from url into the GPU.
 // Args:
 //   @gl:     WebGL handle
@@ -370,10 +401,32 @@ export async function CreateTextureFromUrl(gl: GL, url: string): Promise<Texture
     const image = new Image();
     image.src = url;
     image.onload = () => res(image);
-    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
   });
   
   return CreateTexture(gl, await loadImage);
+}
+
+// Loads a texture map from url into the GPU.
+// Args:
+//   @gl:  WebGL handle
+//   @url: Path to the texture of the "front" resource. The other faces are loaded
+//         should be in the same directory with the same extension, with filenames
+//         [back.ext, left.ext, right.ext, top.ext, bottom.ext]
+export async function CreateCubemapFromUrl(gl: GL, frontUrl: string): Promise<Texture> {
+  const pathParts = frontUrl.split("/");
+  const filename = pathParts[pathParts.length - 1];
+  const ext = filename.split(".")[1];
+  const prefix = pathParts.slice(0, pathParts.length - 1).join("/");
+  const filenames = ["front", "back", "top", "bottom", "left", "right"];
+  const images = await Promise.all(filenames.map((filename) => {
+    const image = new Image();
+    image.src = `${prefix}/${filename}.${ext}`;
+    return new Promise((res) => {
+        image.onload = () => res([filename, image]);
+      });
+  }));
+  return CreateCubemap(gl, Object.fromEntries(images));
+
 }
 
 export enum UNIFORM_TYPES {
@@ -386,6 +439,7 @@ export enum UNIFORM_TYPES {
   MAT3 = "MAT3",
   MAT4 = "MAT4",
   TEX2D = "TEX2D",
+  CUBEMAP = "CUBEMAP",
 };
 
 export interface UniformSpec {
@@ -427,6 +481,7 @@ export async function LoadUniform(gl: GL, uniform: UniformSpec, url: string): Pr
       // @ts-ignore
       return {...uniform, value: mat4.fromValues(...uniform.value)};
     case UNIFORM_TYPES.TEX2D:
+    {
       const textureName =  `${url}/${uniform.value}`;
       return {
         ...uniform,
@@ -434,6 +489,17 @@ export async function LoadUniform(gl: GL, uniform: UniformSpec, url: string): Pr
         textureName,
 
       };
+    }
+    case UNIFORM_TYPES.CUBEMAP:
+    {
+      const textureName =  `${url}/${uniform.value}`;
+      return {
+        ...uniform,
+        value: await CreateCubemapFromUrl(gl ,textureName),
+        textureName,
+
+      };
+    }
     default:
       ShowError(`Unrecognized typeHint: ${uniform.typeHint}`);
       return null;
@@ -479,12 +545,23 @@ export function BindUniform(glContext: GLContext, shader: Shader, uniform: Unifo
       gl.uniformMatrix4fv(uniformId, false, uniform.value);
       return;
     case UNIFORM_TYPES.TEX2D:
+    {
       // TODO: Allow for multiple textureSlots to be bound at once.
       const textureSlot = glContext.textureSlots.get(uniform.value);
       gl.activeTexture(textureSlot);
       gl.bindTexture(gl.TEXTURE_2D, uniform.value.texture);
       gl.uniform1i(uniformId, textureSlot - gl.TEXTURE0);
       return;
+    }
+    case UNIFORM_TYPES.CUBEMAP:
+    {
+      // TODO: Allow for multiple textureSlots to be bound at once.
+      const textureSlot = glContext.textureSlots.get(uniform.value);
+      gl.activeTexture(textureSlot);
+      gl.bindTexture(gl.TEXTURE_CUBE_MAP, uniform.value.texture);
+      gl.uniform1i(uniformId, textureSlot - gl.TEXTURE0);
+      return;
+    }
     default:
       console.warn(`Unrecognized typeHint: ${uniform.typeHint}`);
       return;

@@ -5,7 +5,7 @@
       "transform": {
         "translation": [-2, 0, -5],
         "rotation": [0, 0, 0],
-        "scale": [1, 1, 1]
+        "scale": [1, 1, 10]
       }
     },
     {
@@ -13,7 +13,7 @@
       "transform": {
         "translation": [2, 0, -5],
         "rotation": [0, 0, 0],
-        "scale": [1, 1, 1]
+        "scale": [1, 1, 10]
       }
     },
     {
@@ -21,7 +21,7 @@
       "transform": {
         "translation": [0, -1, -5],
         "rotation": [0, 0, 0],
-        "scale": [1, 0.01, 1]
+        "scale": [1, 0.01, 10]
       }
     }
   ]
